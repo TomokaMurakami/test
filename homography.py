@@ -13,7 +13,7 @@ def normalize_homography(w, h):
     s = np.dot(np.linalg.inv(R), homography)[2]
     x = np.dot(np.linalg.inv(R), homography) / s
 
-    return 2*x[0] + w_def, x[1]
+    return 2*x[0] + w, x[1]
 
 
 def normalize_screen_coordinates(X, w, h): 
