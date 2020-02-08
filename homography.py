@@ -1,25 +1,5 @@
 
-from scipy.spatial.transform import Rotation
-
-def homography(X, w, h):
-    assert w == h
-
-    width = w
-    rate = width / 1000
-    fx = 1145.0494384765625 * rate
-    fy = 1143.7811279296875 * rate
-    cx = 512.54150390625 * rate
-    cy = 515.4514770507812 * rate
-    crop_center = 730-540
-    f = 1.05963144e+03
-    theta = 116.28579489613153 - 102 + np.degrees(np.arctan(crop_center / f))
-    p_trans = np.float32([[[0],[0],[1]],
-                    [[width],[0],[1]],
-                    [[0],[width],[1]],
-                    [[width],[width],[1]]])
-    f = [[fx, 0, cx],
-        [0, fy, cy],
-        [0, 0, 1]]
+def normalize_homography(w, h):
 
     rot = Rotation.from_euler('xyz', np.array([theta, 0, 0]), degrees=True)
     R = rot.as_dcm()
@@ -27,14 +7,29 @@ def homography(X, w, h):
     R[1][2] = -cy 
     R[2][2] = fy
 
-    for i in range(X.shape[0]): 
-        kps = np.append(X[i], np.ones((X.shape[1],1)), axis=1)
+    w_def = np.float32([[w],[w],[1]])
 
-        homography = np.dot(np.linalg.inv(f), kps.T)
-        s = np.dot(np.linalg.inv(R), homography)[2]
-        x = np.dot(np.linalg.inv(R), homography) / s
-        
-        x = np.delete(x, 2, axis=0)
-        X[i] = x.T
+    homography = np.dot(np.linalg.inv(f), w_def)
+    s = np.dot(np.linalg.inv(R), homography)[2]
+    x = np.dot(np.linalg.inv(R), homography) / s
+
+    return 2*x[0] + w_def, x[1]
+
+
+def normalize_screen_coordinates(X, w, h): 
+    assert X.shape[-1] == 2
     
-    return X
+    x = X
+    w_x, w_y = normalize_homography(w, h)
+    x[0] = (w_x - w) / 2 + X[0]  
+
+    # Normalize so that [0, w] is mapped to [-1, 1], while preserving the aspect ratio
+    if h > w:
+        return X/w*2 - [1, h/w]
+    else:
+        return X/h*2 - [w/h, 1]
+
+    if w_x > w_y:
+        return x/w_x*2 - [1, w_y/w_x]
+    else:
+        return x/w_y*2 - [w_x/w_y, 1]
